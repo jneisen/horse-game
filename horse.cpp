@@ -9,6 +9,12 @@
 #include <iostream>
 #include <fstream>
 
+#include <shaders.h>
+
+void render_text(const char *text, float x, float y, float sx, float sy){
+
+}
+
 void main(){
 	FT_Library ft;
 	if(FT_Init_FreeType(&ft)){
@@ -31,5 +37,28 @@ void main(){
 	}
 
 	FT_GlyphSlot g = face->glyph;
-	i
+	//unneeded for current project probably
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	
+	GLuint tex;
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	//unclear whether or not uniform_tex has to be defined (or is automatic)
+	glUniform1i(uniform_tex, 0);
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	//disable 4 byte allignment restrictions
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	GLuint vbo;
+	glGenBuffers(1, &vbo);
+	glEnableVertexAttribArray(attribute_coord);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
 }
