@@ -31,4 +31,5 @@ void main(){
 	}
 
 	FT_GlyphSlot g = face->glyph;
+	i
 }
