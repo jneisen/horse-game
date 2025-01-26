@@ -130,7 +130,7 @@ int main(){
 		std::cout << "Could not init freetype library\n";
 	}
 	
-	if(FT_New_Face(ft, "include/OpenSans-Regular.ttf", 0, &face)){
+	if(FT_New_Face(ft, "include/Tomorrow-Regular.ttf", 0, &face)){
 		std::cout << "Could not open font\n";
 	}
 	
@@ -181,6 +181,7 @@ void display(){
 	float sy = 2.0 / height;
 
 	render_text("The Quick brown fox jumps over the lazy dog", -1 + 8 * sx, 1 - 50 * sy, sx, sy);
+	render_text("or maybe not nnnn bbbb nnnn bbbb test", -1 + 8 * sx, 1 - 100 * sy, sx, sy);
 
 	glfwSwapBuffers(window);
 	glfwPollEvents();
