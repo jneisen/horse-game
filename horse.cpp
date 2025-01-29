@@ -1,189 +1,114 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <glad/gl.h>
 #include <glad/gl.c>
 #define GLFW_INCLUDE_NONE
 #include <glfw3.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+
+#include "game.h"
+#include "game.cpp"
+
+#include "resource_manager.h"
+#include "resource_manager.cpp"
 
 #include <iostream>
-#include <fstream>
-#include <vector>
 
-#include <shaders.h>
+// GLFW function declarations
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 
-GLFWwindow* window;
+// The Width of the screen
+const int SCREEN_WIDTH = 800;
+// The height of the screen
+const int SCREEN_HEIGHT = 600;
 
-int width, height;
+Game Breakout(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-GLuint program;
-GLint attribute_coord;
-GLint uniform_tex;
-GLint uniform_color;
+int main(int argc, char *argv[])
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+    glfwWindowHint(GLFW_RESIZABLE, false);
 
-GLuint vbo;
+    GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Horse Game", nullptr, nullptr);
+    glfwMakeContextCurrent(window);
 
-FT_Library ft;
-FT_Face face;
-FT_GlyphSlot g;
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if(!gladLoadGL(glfwGetProcAddress)){
+	std::cout << "couldn't initialize glad";
+	return -1;
+    }
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-const char *fontfilename;
+    glViewport(0, 0, 680, 400);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-void display();
-void render_text(const char *text, float x, float y, float sx, float sy);
+    // initialize game
+    Breakout.Init();
 
-void render_text(const char *text, float x, float y, float sx, float sy){
-	const char *p;
+    // deltaTime variables
+    // -------------------
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
 
-	for(p = text; *p; p++){
-		if(FT_Load_Char(face, *p, FT_LOAD_RENDER))
-			continue;
+    while (!glfwWindowShouldClose(window))
+    {
+        // calculate delta time
+        // --------------------
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+        glfwPollEvents();
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, g->bitmap.width, g->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, g->bitmap.buffer);
-		
-		float x2 = x + g->bitmap_left * sx;
-		float y2 = -y - g->bitmap_top * sy;
-		float w = g->bitmap.width * sx;
-		float h = g->bitmap.rows * sy;
+        // manage user input
+        // -----------------
+        Breakout.ProcessInput(deltaTime);
 
-		GLfloat box[4][4] = {
-			{x2,     -y2    , 0, 0},
-			{x2 + w, -y2    , 1, 0},
-			{x2,     -y2 - h, 0, 1},
-			{x2 + w, -y2 - h, 1, 1}
-		};
+        // update game state
+        // -----------------
+        Breakout.Update(deltaTime);
 
-		glBufferData(GL_ARRAY_BUFFER, sizeof box, box, GL_DYNAMIC_DRAW);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        // render
+        // ------
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        Breakout.Render();
 
-		x += (g->advance.x/64) * sx;
-		y += (g->advance.y/64) * sy;
-	}
+        glfwSwapBuffers(window);
+    }
+
+    // delete all resources as loaded using the resource manager
+    // ---------------------------------------------------------
+    ResourceManager::Clear();
+
+    glfwTerminate();
+    return 0;
 }
 
-int main(){
-	//regular OpenGL stuff
-
-	glfwInit();
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	//create window
-	window = glfwCreateWindow(640, 480, "Horse Game", NULL, NULL);
-	glfwMakeContextCurrent(window);
-	gladLoadGL(glfwGetProcAddress);
-	glfwSwapInterval(1);
-	
-	//compile shaders
-	const GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex_shader, 1, &vertex_shader_text, NULL);
-	glCompileShader(vertex_shader);
-
-	const GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment_shader, 1, &fragment_shader_text, NULL);
-	glCompileShader(fragment_shader);
-
-	GLint success = 0;
-	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
-	if(success == GL_FALSE){
-		std::cout << "Vertex shader no compile\n";
-	}
-
-	GLint logSize = 0;
-	glGetShaderiv(fragment_shader, GL_INFO_LOG_LENGTH, &logSize);
-	std::vector<GLchar> errorLog(logSize);
-	glGetShaderInfoLog(fragment_shader, logSize, NULL, &errorLog[0]);
-	for(int i = 0; i < errorLog.size(); i++)
-		std::cout << errorLog[i];
-
-	//link program
-	program = glCreateProgram();
-	glAttachShader(program, vertex_shader);
-	glAttachShader(program, fragment_shader);
-	glLinkProgram(program);
-	glUseProgram(program);
-
-	//get attributes/uniforms
-	attribute_coord = glGetAttribLocation(program, "coord");
-	uniform_tex = glGetUniformLocation(program, "texer");
-	uniform_color = glGetUniformLocation(program, "color");
-
-	//make VBO
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-	//make vao
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	glEnableVertexAttribArray(attribute_coord);
-	glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	
-	//freetype library stuff
-	if(FT_Init_FreeType(&ft)){
-		std::cout << "Could not init freetype library\n";
-	}
-	
-	if(FT_New_Face(ft, "include/Tomorrow-Regular.ttf", 0, &face)){
-		std::cout << "Could not open font\n";
-	}
-	
-	FT_Set_Pixel_Sizes(face, 0, 24);
-	g = face->glyph;
-	//unneeded for current project probably
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	GLuint tex;
-	glGenTextures(1, &tex);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
-
-	glUniform1i(uniform_tex, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	//disable 4 byte allignment restrictions
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	
-
-	while(!glfwWindowShouldClose(window)){
-		display();
-	}
-
-
-	glDeleteProgram(program);
-	return 0;
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
+{
+    // when a user presses the escape key, we set the WindowShouldClose property to true, closing the application
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+    if (key >= 0 && key < 1024)
+    {
+        if (action == GLFW_PRESS)
+            Breakout.Keys[key] = true;
+        else if (action == GLFW_RELEASE)
+            Breakout.Keys[key] = false;
+    }
 }
 
-void display(){
-	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	GLfloat white[4] = {1, 1, 1, 1};
-	glUniform4fv(uniform_color, 1, white);
-	
-	glfwGetWindowSize(window, &width, &height);
-
-	glViewport(0, 0, width, height);
-
-	glUseProgram(program);
-
-	float sx = 2.0 / width;
-	float sy = 2.0 / height;
-
-	render_text("The Quick brown fox jumps over the lazy dog", -1 + 8 * sx, 1 - 50 * sy, sx, sy);
-	render_text("or maybe not nnnn bbbb nnnn bbbb test", -1 + 8 * sx, 1 - 100 * sy, sx, sy);
-
-	glfwSwapBuffers(window);
-	glfwPollEvents();
-
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
 }

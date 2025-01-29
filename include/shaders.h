@@ -6,8 +6,8 @@ const char* vertex_shader_text =
 "out vec2 texcoord;\n"
 "\n"
 "void main(void){\n"
-"	gl_Position = vec4(coord.x, coord.y, 0, 1);\n"
-"	texcoord = vec2(coord.z, coord.w);\n"
+"	gl_Position = vec4(coord.xy, 0, 1);\n"
+"	texcoord = coord.zw;\n"
 "}";
 
 const char* fragment_shader_text = 
